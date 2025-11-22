@@ -8,7 +8,7 @@ RUN apk add --no-cache ca-certificates tzdata curl
 WORKDIR /app
 
 # 构建时下载 Hysteria2 二进制（用国内镜像加速）
-RUN curl -Lk -o hysteria "http://ghproxy.com/https://github.com/apernet/hysteria/releases/download/app%2Fv2.6.2/hysteria-linux-amd64" \
+RUN curl -Lk -o hysteria "https://github.com/apernet/hysteria/releases/download/app%2Fv2.6.2/hysteria-linux-amd64" \
     && chmod +x hysteria
 
 # 复制证书和启动脚本
