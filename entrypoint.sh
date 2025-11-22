@@ -5,7 +5,17 @@ set -e
 [ -z "$IN_PORT" ] && { echo "❌ IN_PORT 未设置"; exit 1; }
 [ -z "$HOST"    ] && { echo "❌ HOST 未设置";    exit 1; }
 [ -z "$PORT"    ] && { echo "❌ PORT 未设置";    exit 1; }
-[ -z "$PW"      ] && { echo "❌ PW 未设置";      exit 1; }
+
+HOST=$(curl -s cip.cc | grep -oE 'IP\s*:\s*[0-9.]+'
+
+if [ -z "$PW" ]; then
+    PW=$(hostname)
+    echo "PW 环境变量未设置，使用hostname作为密码：$PW"
+else
+    echo "使用环境变量的密码: $PW"
+fi
+
+
 
 # ======== 生成配置文件 ========
 cat > /app/config.yaml <<EOF
@@ -76,9 +86,12 @@ if [ -n "$WEBHOOK_URL" ]; then
     echo "📩 发送 POST 通知至: $WEBHOOK_URL"
     # 后台发送，避免阻塞
 
+    # 构造带换行的通知内容
+    NOTIFICATION_MSG="🎉 新 Hysteria 链接生成：
+${RAW_LINK}
+
     
-    send_post_notification "$WEBHOOK_URL" "🎉 新 Hysteria 链接生成：
-    ${LINK}" &
+    send_post_notification "$WEBHOOK_URL" "$NOTIFICATION_MSG" &
     # 等 0.1 秒让子进程 fork 出去（避免 exec 前被 kill）
     sleep 0.1
 else
