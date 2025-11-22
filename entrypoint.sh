@@ -75,7 +75,10 @@ WEBHOOK_URL="${NOTIFY_WEBHOOK:-}"
 if [ -n "$WEBHOOK_URL" ]; then
     echo "📩 发送 POST 通知至: $WEBHOOK_URL"
     # 后台发送，避免阻塞
-    send_post_notification "$WEBHOOK_URL" "🎉 新 Hysteria 链接生成：${LINK}" &
+
+    
+    send_post_notification "$WEBHOOK_URL" "🎉 新 Hysteria 链接生成：
+    ${LINK}" &
     # 等 0.1 秒让子进程 fork 出去（避免 exec 前被 kill）
     sleep 0.1
 else
