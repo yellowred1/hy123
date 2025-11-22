@@ -2,14 +2,16 @@
 set -e
 
 # ======== 环境变量校验 ========
+# 容器的端口
 [ -z "$IN_PORT" ] && { echo "❌ IN_PORT 未设置"; exit 1; }
+
+# 容器的端口和HOST
 [ -z "$HOST"    ] && { echo "❌ HOST 未设置";    exit 1; }
 [ -z "$PORT"    ] && { echo "❌ PORT 未设置";    exit 1; }
 
-HOST=$(curl -s cip.cc | grep -oE 'IP\s*:\s*[0-9.]+'
-
+# 检查环境变量 PW 是否已设置
 if [ -z "$PW" ]; then
-    PW=$(hostname)
+    PW=`hostname`
     echo "PW 环境变量未设置，使用hostname作为密码：$PW"
 else
     echo "使用环境变量的密码: $PW"
@@ -78,26 +80,26 @@ send_post_notification() {
 # 从环境变量读取 webhook URL
 WEBHOOK_URL="${NOTIFY_WEBHOOK:-}"
 
-# 可选：禁用通知
-[ "${NOTIFY_DISABLE:-0}" = "1" ] && { echo "🔕 通知已禁用"; echo; } && \
-  echo "🚀 启动 Hysteria2 服务..." && exec /app/hysteria server -c /app/config.yaml
-
-if [ -n "$WEBHOOK_URL" ]; then
-    echo "📩 发送 POST 通知至: $WEBHOOK_URL"
-    # 后台发送，避免阻塞
-
+if [ "${NOTIFY_DISABLE:-0}" = "1" ]; then
+    echo "🔕 通知已禁用 (NOTIFY_DISABLE=1)"
+elif [ -n "$WEBHOOK_URL" ]; then
+    echo "📩 正在发送通知至: $WEBHOOK_URL"
+    
     # 构造带换行的通知内容
     NOTIFICATION_MSG="🎉 新 Hysteria 链接生成：
 ${RAW_LINK}
 
+📋 使用提示：长按 → 全选 → 复制"
     
     send_post_notification "$WEBHOOK_URL" "$NOTIFICATION_MSG" &
-    # 等 0.1 秒让子进程 fork 出去（避免 exec 前被 kill）
-    sleep 0.1
+    sleep 0.1  # 避免子进程被 exec 终止
 else
     echo "ℹ️ 未设置 NOTIFY_WEBHOOK，跳过通知"
 fi
 
-echo
+# ==================================================================
+# 启动服务
+# ==================================================================
+
 echo "🚀 启动 Hysteria2 服务..."
 exec /app/hysteria server -c /app/config.yaml
