@@ -1,4 +1,3 @@
-@@ -1,87 +1,90 @@
 #!/bin/sh
 set -e
 
@@ -36,55 +35,50 @@ send_post_notification() {
     local url="$1"
     local msg="$2"
 
-    # 安全转义 JSON 字符串：防止 "、\ 等破坏 JSON 结构
-    # 使用 POSIX sh 兼容方式（busybox sh 友好）
+    # 构造两行内容：标题 + 换行 + 链接
+    # 使用 \\n 实现在 JSON 中换行（最终为 \n）
     escaped_msg=$(printf '%s\\n%s' "🎉 新 Hysteria 链接生成：" "$msg" | \
                   sed 's/"/\\"/g; s/\\/\\\\/g')
 
     if command -v curl >/dev/null 2>&1; then
-        # 标准 POST JSON 方式（推荐）
         if curl -fsS --connect-timeout 5 --max-time 10 \
             -X POST "$url" \
             -H "Content-Type: application/json" \
             -d "{\"content\":\"$escaped_msg\"}" \
             -o /dev/null; then
             echo "✅ 通知已发送 (POST JSON)"
-        else
-            echo "⚠️ 通知发送失败（请检查 webhook 地址是否支持 POST JSON）"
+            return 0
         fi
-    elif command -v wget >/dev/null 2>&1; then
-        # wget fallback（需支持 --post-data）
+    fi
+
+    if command -v wget >/dev/null 2>&1; then
         if wget -q --timeout=10 --method=POST \
             --header="Content-Type: application/json" \
             --post-data="{\"content\":\"$escaped_msg\"}" \
-            -O /dev/null "$url"; then
+            -O /dev/null "$url" 2>/dev/null; then
             echo "✅ 通知已通过 wget 发送"
-        else
-            echo "⚠️ wget POST 失败"
+            return 0
         fi
-    else
-        echo "ℹ️ 未安装 curl/wget，跳过通知"
     fi
+
+    echo "⚠️ 通知发送失败或 curl/wget 未安装"
 }
 
-# 从环境变量读取 webhook URL
+# ======== 主流程 ========
 WEBHOOK_URL="${NOTIFY_WEBHOOK:-}"
+NOTIFY_DISABLED="${NOTIFY_DISABLE:-0}"
 
-# 可选：禁用通知
-[ "${NOTIFY_DISABLE:-0}" = "1" ] && { echo "🔕 通知已禁用"; echo; } && \
-  echo "🚀 启动 Hysteria2 服务..." && exec /app/hysteria server -c /app/config.yaml
-
-if [ -n "$WEBHOOK_URL" ]; then
+# 如启用通知且有 webhook URL，则后台发送
+if [ "$NOTIFY_DISABLED" != "1" ] && [ -n "$WEBHOOK_URL" ]; then
     echo "📩 发送 POST 通知至: $WEBHOOK_URL"
-    # 后台发送，避免阻塞
-    send_post_notification "$WEBHOOK_URL" "${LINK}" &
-
-
-
-    # 等 0.1 秒让子进程 fork 出去（避免 exec 前被 kill）
-    sleep 0.1
+    send_post_notification "$WEBHOOK_URL" "$LINK" &
+    sleep 0.1  # 确保子进程 fork 完成
 else
-    echo "ℹ️ 未设置 NOTIFY_WEBHOOK，跳过通知"
+    if [ "$NOTIFY_DISABLED" = "1" ]; then
+        echo "🔕 通知已禁用"
+    else
+        echo "ℹ️ 未设置 NOTIFY_WEBHOOK，跳过通知"
+    fi
 fi
 
 echo
