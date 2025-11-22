@@ -6,12 +6,11 @@ set -e
 [ -z "$HOST"    ] && { echo "❌ HOST 未设置";    exit 1; }
 [ -z "$PORT"    ] && { echo "❌ PORT 未设置";    exit 1; }
 
-
 if [ -z "$PW" ]; then
     PW=$(hostname)
-    echo "PW 环境变量未设置，使用hostname作为密码：$PW"
+    echo "🔑 PW 环境变量未设置，使用 hostname 作为密码: $PW"
 else
-    echo "使用环境变量的密码: $PW"
+    echo "🔑 使用环境变量密码: ${PW:0:3}***"
 fi
 
 # ======== 生成配置文件 ========
@@ -33,59 +32,62 @@ LINK="hy2://${PW}@${HOST}:${PORT}?sni=www.bing.com&insecure=1&alpn=h3#my_hy2"
 echo "=============================================="
 echo "                🚀 Hysteria2 服务已启动"
 echo "=============================================="
-echo "🔗 客户端链接:"
-echo "$LINK"
+echo "🔗 客户端链接（推荐复制整行）:"
+echo "'$LINK'"
 echo
+echo "📝 纯文本链接:"
+echo "$LINK"
+echo "📄 已保存至 /app/link.txt"
+echo "$LINK" > /app/link.txt
 
-# ======== 发送 POST 通知（安全版） ========
+# ======== 发送 form-data 通知（推荐）========
 send_post_notification() {
     local url="$1"
     local msg="$2"
 
-    # 构造两行内容：标题 + 换行 + 链接
-    # 使用 \\n 实现在 JSON 中换行（最终为 \n）
-    escaped_msg=$(printf '%s\\n%s' "🎉 新 Hysteria 链接生成：" "$msg" | \
-                  sed 's/"/\\"/g; s/\\/\\\\/g')
-
     if command -v curl >/dev/null 2>&1; then
+        # ✅ 核心：--data-urlencode 自动处理换行 & 特殊字符
         if curl -fsS --connect-timeout 5 --max-time 10 \
             -X POST "$url" \
-            -H "Content-Type: application/json" \
-            -d "{\"content\":\"$escaped_msg\"}" \
+            --data-urlencode "content=$msg" \
             -o /dev/null; then
-            echo "✅ 通知已发送 (POST JSON)"
+            echo "✅ 通知已发送 (form-data)"
             return 0
         fi
     fi
 
+    # wget fallback（部分系统无 curl）
     if command -v wget >/dev/null 2>&1; then
-        if wget -q --timeout=10 --method=POST \
-            --header="Content-Type: application/json" \
-            --post-data="{\"content\":\"$escaped_msg\"}" \
-            -O /dev/null "$url" 2>/dev/null; then
+        # 注意：wget 不支持 --data-urlencode，需手动编码 \n → %0A
+        encoded_msg=$(printf '%s' "$msg" | sed ':a;N;$!ba;s/\n/%0A/g')
+        if wget -q --timeout=10 --post-data="content=$encoded_msg" -O /dev/null "$url"; then
             echo "✅ 通知已通过 wget 发送"
             return 0
         fi
     fi
 
-    echo "⚠️ 通知发送失败或 curl/wget 未安装"
+    echo "⚠️ 通知失败：curl/wget 未安装或网络错误"
+    return 1
 }
 
 # ======== 主流程 ========
 WEBHOOK_URL="${NOTIFY_WEBHOOK:-}"
 NOTIFY_DISABLED="${NOTIFY_DISABLE:-0}"
 
-# 如启用通知且有 webhook URL，则后台发送
-if [ "$NOTIFY_DISABLED" != "1" ] && [ -n "$WEBHOOK_URL" ]; then
-    echo "📩 发送 POST 通知至: $WEBHOOK_URL"
-    send_post_notification "$WEBHOOK_URL" "$LINK" &
-    sleep 0.1  # 确保子进程 fork 完成
+if [ "$NOTIFY_DISABLED" = "1" ]; then
+    echo "🔕 通知已禁用 (NOTIFY_DISABLE=1)"
+elif [ -n "$WEBHOOK_URL" ]; then
+    echo "📩 发送通知至: $WEBHOOK_URL"
+
+    # 构造带换行的通知内容（⚠️ 用 LINK，不是 RAW_LINK）
+    NOTIFICATION_MSG="🎉 新 Hysteria 链接生成：
+$LINK"
+
+    # ✅ 后台发送，避免阻塞
+    send_post_notification "$WEBHOOK_URL" "$NOTIFICATION_MSG" &
+    sleep 0.1
 else
-    if [ "$NOTIFY_DISABLED" = "1" ]; then
-        echo "🔕 通知已禁用"
-    else
-        echo "ℹ️ 未设置 NOTIFY_WEBHOOK，跳过通知"
-    fi
+    echo "ℹ️ 未设置 NOTIFY_WEBHOOK，跳过通知"
 fi
 
 echo
