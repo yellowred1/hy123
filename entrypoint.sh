@@ -5,7 +5,14 @@ set -e
 [ -z "$IN_PORT" ] && { echo "❌ IN_PORT 未设置"; exit 1; }
 [ -z "$HOST"    ] && { echo "❌ HOST 未设置";    exit 1; }
 [ -z "$PORT"    ] && { echo "❌ PORT 未设置";    exit 1; }
-[ -z "$PW"      ] && { echo "❌ PW 未设置";      exit 1; }
+
+
+if [ -z "$PW" ]; then
+    PW=$(hostname)
+    echo "PW 环境变量未设置，使用hostname作为密码：$PW"
+else
+    echo "使用环境变量的密码: $PW"
+fi
 
 # ======== 生成配置文件 ========
 cat > /app/config.yaml <<EOF
