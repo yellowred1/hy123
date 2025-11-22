@@ -33,12 +33,8 @@ echo "=============================================="
 echo "                🚀 Hysteria2 服务已启动"
 echo "=============================================="
 echo "🔗 客户端链接（推荐复制整行）:"
-echo "'$LINK'"
-echo
-echo "📝 纯文本链接:"
 echo "$LINK"
-echo "📄 已保存至 /app/link.txt"
-echo "$LINK" > /app/link.txt
+echo
 
 # ======== 发送 form-data 通知（推荐）========
 send_post_notification() {
@@ -51,7 +47,7 @@ send_post_notification() {
             -X POST "$url" \
             --data-urlencode "content=$msg" \
             -o /dev/null; then
-            echo "✅ 通知已发送 (form-data)"
+            echo "✅ 通知已通过 curl 发送"
             return 0
         fi
     fi
