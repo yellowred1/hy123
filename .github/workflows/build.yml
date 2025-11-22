@@ -25,4 +25,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: yellowred123/hy123:latest
+          tags: redyellow123/hy123:latest
